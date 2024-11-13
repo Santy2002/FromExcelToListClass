@@ -160,8 +160,8 @@ namespace FromExcelToListClass
             }
             else
             {
-                //TODO ver esto, corregir.
-                if (!string.IsNullOrEmpty(celda.ToString()) && property.PropertyType == typeof(int))
+                //TODO ver esto, corregir. Tiene que poder setear propiedades vacias. Esto tira error en todas las vacias.
+                if (string.IsNullOrEmpty(celda.ToString()) && property.PropertyType != typeof(int))
                 {
                     parsedValue = Convert.ChangeType(celda.ToString(), property.PropertyType);
                 }
