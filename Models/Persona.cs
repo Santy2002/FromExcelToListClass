@@ -22,7 +22,12 @@ namespace FromExcelToListClass.Models
     {
         public static string ToDebugString<TKey, TValue>(this IDictionary<TKey, TValue> dictionary)
         {
-            return "{" + string.Join(",\n", dictionary.Select(kv => kv.Key + " = " + kv.Value).ToArray()) + "}";
+            if (dictionary != null)
+            {
+                return "{" + string.Join(",\n", dictionary.Select(kv => kv.Key + " = " + kv.Value).ToArray()) + "}";
+            }
+
+            return string.Empty;
         }
     }
 }

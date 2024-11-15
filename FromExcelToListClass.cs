@@ -1,10 +1,12 @@
-﻿using FromExcelToListClass.Models.DTO;
+﻿using BenchmarkDotNet.Toolchains.InProcess.Emit.Implementation;
+using FromExcelToListClass.Models.DTO;
 using NPOI.HSSF.UserModel;
 using NPOI.SS.Formula.Functions;
 using NPOI.SS.UserModel;
 using NPOI.XSSF.UserModel;
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
+using System.Reflection.Metadata;
 using System.Text;
 
 
@@ -51,19 +53,18 @@ namespace FromExcelToListClass
             IRow headerRow = sheet.GetRow(0);
 
             var requiredHeaders = GetRequiredHeaders();
-            var checkHeaders = CheckHeadersName(headerRow, requiredHeaders);
-            
+            var checkHeaders = CheckHeaders(headerRow, requiredHeaders);
+
             if (checkHeaders.Error)
             {
-                Console.WriteLine(string.Format("Error de validacion en los encabezados. No se procesara el archivo: {0}\n{1}", file.Name, checkHeaders.ErrorMessage));
+                var msgerror = new StringBuilder().AppendFormat("Error de validacion en los encabezados. No se procesara el archivo: {0}.\nInconsistencias:\n{1}", file.Name, checkHeaders.ErrorMessage);
+                Console.WriteLine(msgerror);
                 return result;
             }
 
             #endregion Headers
 
             #endregion Validaciones
-
-            //Console.WriteLine(string.Format("Procesando: {0}", file.Name));
 
             var msgErrorTotal = new StringBuilder().Append("Error de formato en:\n");
 
@@ -84,8 +85,56 @@ namespace FromExcelToListClass
                 result.Add(cellResult.Objeto);
             }
 
-            //Console.WriteLine(msgErrorTotal);
             return result;
+        }
+
+        public static ResultDTO CheckHeaders(IRow headerRow, string[] requiredHeaders)
+        {
+            var result = new ResultDTO() { Error = false, ErrorMessage = string.Empty };
+            var msgErrorHeaders = new StringBuilder();
+
+            var checkRequiredHeaders = CheckHeadersName(headerRow, requiredHeaders);
+
+            if (checkRequiredHeaders.Error)
+            {
+                result.Error = true;
+                msgErrorHeaders.Append(checkRequiredHeaders.ErrorMessage);
+            }
+
+            var notRequiredHeaders = GetNotRequiredHeaders(requiredHeaders.Length, headerRow);
+            var checkNotRequiredHeaders = CheckNotRequiredHeaders(notRequiredHeaders);
+
+            if (checkNotRequiredHeaders.Error)
+            {
+                result.Error = true;
+                msgErrorHeaders.Append(checkNotRequiredHeaders.ErrorMessage);
+            }
+
+            result.ErrorMessage = msgErrorHeaders.ToString();
+            return result;
+        }
+
+        private static List<string>? GetNotRequiredHeaders(int cantReqHeader, IRow headerRow)
+        {
+            var auxList = new List<string>();
+            for (int i = cantReqHeader; i <= headerRow.LastCellNum; i++)
+            {
+                ICell cell = headerRow.GetCell(i);
+                ICell nextCell = headerRow.GetCell(i + 1);
+
+                if ((cell == null || cell?.ToString() == string.Empty) && (nextCell == null || nextCell?.ToString() == string.Empty))
+                {
+                    return auxList;
+                }
+                else if((cell == null || cell?.ToString() == string.Empty) && (nextCell != null || nextCell?.ToString() != string.Empty))
+                {
+                    return null;
+                }
+
+                auxList.Add(cell?.ToString());
+            }
+
+            return auxList;
         }
 
         private static string[] GetRequiredHeaders()
@@ -138,6 +187,31 @@ namespace FromExcelToListClass
             return result;
         }
 
+        public static ResultDTO CheckNotRequiredHeaders(List<string>? notRequiredHeadersName)
+        {
+            var result = new ResultDTO() { Error = false, ErrorMessage = string.Empty };
+
+            if (notRequiredHeadersName == null)
+            {
+                result.Error = true;
+                result.ErrorMessage = "Corrobore que no haya encabezados o columnas en blanco intermedias.";
+                return result;
+            }
+
+            var duplicates = notRequiredHeadersName.GroupBy(x => x)
+                        .Where(g => g.Count() > 1)
+                        .Select(g => g.Key)
+                        .ToList();
+
+            if (duplicates.Any())
+            {
+                result.Error = true;
+                result.ErrorMessage = "Hay columnas NO OBLIGATORIAS con el mismo nombre. Porfavor revise y vuelva a intentar.";
+            }
+
+            return result;
+        }
+
         private static TResultDTO<T> ParseRowToClass(IRow row, IRow headerRow, int cantidadColumnasObligatorias, int cantidadColumnasRecibidas)
         {
             var result = new TResultDTO<T>() { Error = false, ErrorMessage = string.Empty };
@@ -162,11 +236,12 @@ namespace FromExcelToListClass
 
                 propiedad.SetValue(GenericObj, parsedCell.Property);             
             }
-            result.ErrorMessage = msgError.ToString();
+            
 
             #endregion Columnas Obligatoias
 
             #region Columnas Opcionales
+
             if (cantidadColumnasObligatorias < cantidadColumnasRecibidas)
             {
                 var dict = GetDictionaryFromPool();
@@ -182,12 +257,14 @@ namespace FromExcelToListClass
                     dict.Add(header.StringCellValue, celda?.ToString() ?? string.Empty);
                 }
 
-                propiedadDict.SetValue(GenericObj, dict);
+                propiedadDict.SetValue(GenericObj, new Dictionary<string,string>(dict));
 
                 ReturnDictionaryToPool(dict);
             }
+
             #endregion Columnas Opcionales
 
+            result.ErrorMessage = msgError.ToString();
             result.Objeto = GenericObj;
             return result;
         }
@@ -201,7 +278,7 @@ namespace FromExcelToListClass
             switch (Type.GetTypeCode(property.PropertyType))
             {
                 case TypeCode.DateTime:
-                    if (!string.IsNullOrEmpty(cellStringValue) && DateTime.TryParse(cellStringValue, out DateTime date))
+                    if (DateTime.TryParse(cellStringValue, out DateTime date))
                     {
                         parsedValue = date;
                     }
@@ -214,8 +291,46 @@ namespace FromExcelToListClass
                     }
                     break;
 
+                case TypeCode.Int64:
+                    if (int.TryParse(cellStringValue, out int num64))
+                    {
+                        parsedValue = num64;
+                    }
+                    break;
+
+                case TypeCode.Boolean:
+                    if (bool.TryParse(cellStringValue, out bool Bool))
+                    {
+                        parsedValue = Bool;
+                    }
+                    break;
+
+                case TypeCode.Decimal:
+                    if(decimal.TryParse(cellStringValue, out decimal Decimal))
+                    {
+                        parsedValue = Decimal;
+                    }
+                    break;
+
+                case TypeCode.Double:
+                    if (double.TryParse(cellStringValue, out double Double))
+                    {
+                        parsedValue = Double;
+                    }
+                    break;
+
                 default:
-                    parsedValue = Convert.ChangeType(cellStringValue, property.PropertyType);
+                    if (property.PropertyType == typeof(DateOnly))
+                    {
+                        if (DateTime.TryParse(cellStringValue, out DateTime dateOnlyValue))
+                        {
+                            parsedValue = DateOnly.FromDateTime(dateOnlyValue);
+                        }
+                    }
+                    else
+                    {
+                        parsedValue = Convert.ChangeType(cellStringValue, property.PropertyType);
+                    }
                     break;
             }
 

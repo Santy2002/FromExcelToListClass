@@ -19,30 +19,29 @@ namespace FromExcelToListClass
         [Benchmark]
         public void MiFuncion()
         {
-            var path = Path.GetFullPath("C:\\Users\\Santi\\source\\repos\\GenericImportExcelToClass\\FromExcelToListClass\\excels\\");
+            var path = Path.GetFullPath("C:\\Users\\sspairani\\source\\repos\\a\\FromExcelToListClass\\excels\\");
             var directory = new DirectoryInfo(path);
 
             foreach (var file in directory.GetFiles())
             {
-                var resultado = new FromExcelToListClass<Persona>().ParseExcelToClass(file);
+                var resultado = new FromExcelToListClass<AlgoConFechas>().ParseExcelToClass(file);
 
                 //resultado.ForEach(p =>
                 //{
-                //    Console.WriteLine(p.ToString() + "\n");
+                //    Console.WriteLine(p.ToString());
                 //});
-
             }
         }
 
         [Benchmark]
         public void MiFuncion2()
         {
-            var path = Path.GetFullPath("C:\\Users\\Santi\\source\\repos\\GenericImportExcelToClass\\FromExcelToListClass\\excels\\");
+            var path = Path.GetFullPath("C:\\Users\\sspairani\\source\\repos\\a\\FromExcelToListClass\\excels\\");
             var directory = new DirectoryInfo(path);
 
             foreach (var file in directory.GetFiles())
             {
-                var resultado = new FromExcelToListClass<Persona>().ParseExcelToClass(file);
+                var resultado = new FromExcelToListClass<AlgoConFechas>().ParseExcelToClass(file);
 
                 //resultado.ForEach(p =>
                 //{
