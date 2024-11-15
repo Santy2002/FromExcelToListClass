@@ -10,18 +10,19 @@ namespace FromExcelToListClass.Models
         public string Apellido { get; set; }
         [Required]
         public int Edad { get; set; }
-        public string ComidaFavorita { get; set; }
-        public DateTime FechaCreacion { get; set; }
-        public string Color { get; set; }
-        public string Hijos { get; set; }
-        //public string Mouse { get; set; }
-        //public string Teclado { get; set; }
-        //public string Compu { get; set; }
-        //public string Play {  get; set; }
+        public Dictionary<string, string> Opcionales { get; set; }
 
         public override string ToString()
         {
-            return string.Format("Persona:\nNombre: {0}\nApellido: {1}\nEdad: {2}\nComida Favorita: {3}\nFecha Creacion: {4}\nColor: {5}\nHijos: {6}", Nombre, Apellido, Edad, ComidaFavorita, FechaCreacion, Color, Hijos);
+            return string.Format("Persona:\nNombre: {0}\nApellido: {1}\nEdad: {2}\nOpcionales: {3}", Nombre, Apellido, Edad, Opcionales.ToDebugString());
+        }
+    }
+
+    public static class Extendidos
+    {
+        public static string ToDebugString<TKey, TValue>(this IDictionary<TKey, TValue> dictionary)
+        {
+            return "{" + string.Join(",\n", dictionary.Select(kv => kv.Key + " = " + kv.Value).ToArray()) + "}";
         }
     }
 }
